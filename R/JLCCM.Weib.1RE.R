@@ -1,0 +1,36 @@
+JLCCM.Weib.1RE <-
+  function () {
+    # Likelihood using trick of zeros
+    for (i in 1:N) {
+      # Longitudinal Part
+      for(j in offset[i]:(offset[i+1]-1)){
+        y[j] ~ dnorm(mu[j], prec.tau2)
+        mu[j] <- inprod(beta[index[i], 1:ncX], X[j, 1:ncX]) + xi[i] * U[j, 1]
+      }
+      # Incidence part
+      logit(pi[i]) <- inprod(gamma[1:ncW], W[i, 1:ncW])
+      class[i] ~ dbern(pi[i])
+      index[i] <- 1*equals(class[i],1) + equals(class[i],0)*2
+      # Latency part
+      etaBaseline[i] <- inprod(alpha[1:ncZ], Z[i, 1:ncZ])
+      log_S1[i] <- -exp(etaBaseline[i]) * pow(Time[i], shape)
+      log_h1[i] <- log(shape) + (shape-1)*log(Time[i]) + etaBaseline[i]
+      logL[i] <- class[i]*log(pi[i]) + class[i]*delta[i]*log_h1[i] + class[i]*log_S1[i] + (1-delta[i])*(1-class[i])*log(1-pi[i])
+      # log_f1[i] <- log(shape) + (shape-1)*log(Time[i]) + etaBaseline[i] - exp(etaBaseline[i]) *pow(Time[i], shape)
+      # logL[i] <- class[i]*log(pi[i]) + class[i]*delta[i]*log_f1[i] + (1-delta[i])*class[i]*log_S1[i] + (1-delta[i])*(1-class[i])*log(1-pi[i])
+      mlogL[i] <- -logL[i] + C
+      zeros[i] ~ dpois(mlogL[i])
+      # Random Effects Part : Hyper-parameterization of random effects
+      xi[i] ~ dnorm(0, prec.Sigma2)
+    }
+    # Longitudinal priors
+    prec.tau2 ~ dgamma(priorA.tau,priorB.tau)
+    beta[1,1:ncX] ~ dmnorm(priorMean.beta1[], priorTau.beta1[, ])       # class 1 (uncured subjects, D=1)
+    beta[2,1:ncX] ~ dmnorm(priorMean.beta2[], priorTau.beta2[, ])       # class 2 (cured subjects, D=0)
+    prec.Sigma2 ~ dgamma(priorA.Sigma2,priorB.Sigma2)
+    # Latency priors
+    alpha[1:ncZ] ~ dmnorm(priorMean.alpha[], priorTau.alpha[, ])
+    shape ~ dgamma(priorA.shape,priorB.shape)
+    # Incidence priors
+    gamma[1:ncW] ~ dmnorm(priorMean.gamma[], priorTau.gamma[, ])
+  }
