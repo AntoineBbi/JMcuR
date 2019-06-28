@@ -2,21 +2,20 @@
 #'
 #' Predictions of the cure membership, the longitudinal or survival responses from the estimated joint longitudinal survival models with cure fraction
 #'
-#' @param object an object inheriting from class 'JMcuR'
+#' @param object an object inheriting from class \code{JMcuR}
 #' @param newdata a data frame in which to look for variables with which to predict (default is NULL, and the prediction is done on the data used to estimate the cure model)
 #' @param type a character string indicating the type of predictions to compute, marginal or subject-specific.
 #' @param state a (vector of) character string indicating the response ("cure","survival","longitudinal") to predict
-#' @param level.interval a numeric scalar denoting the tolerance/confidence level for the credibility interval
+#' @param level.interval a numeric scalar denoting the tolerance/confidence level for the credibility interval; the credible interval is return only for \cite{MCMC=TRUE}
 #' @param Tsurv A numeric scalar denoting the time of interest associated with the prediction; 'Tsur' is NULL by default and then the censoring time is considered to predict the cure status.
 #' @param Yt a numeric scalar denoting the value of the longitudinal measurement if type='profile'. yt is NULL by default
 #' @param yVar a character string indicating the name of the variable in newdata that corresponds to the longitudinal outcome;
 #' @param idVar a character string indicating the name of the variable in newdata that corresponds to the subject identifier; required when type = "Subject"
-#' @param scale a numeric value setting the scaling of the covariance matrix of the empirical Bayes estimates in the Metropolis step during the Monte Carlo sampling.
-#' @param MCMC logical; if TRUE prediction procedure is done using Bayesian approach, and if FALSE the Frequentist approach is then considered for the prediction procedure
+#' @param MCMC logical; if TRUE prediction procedure is done using Bayesian approach, and if FALSE (by default) the Frequentist approach is then considered for the prediction procedure
 #' @param M a numerical scalar denoting the sampling size using Bayesian approach; is NULL by default and the lengh of MC chains in estimation step is then considered.
 #' @param ... further arguments to be passed to or from other methods. They are ignored in this function.
 #'
-#' @return An object 'curePredict' being a list with the following elements:
+#' @return An object \code{curePredict} being a list with the following elements:
 #'    \describe{
 #'   \item{\code{out_pred}}{Dataframe with the (subject-specific) prediction results.}
 #'   \item{\code{sims.list}}{list of the MCMC chains of the parameters}
@@ -29,22 +28,95 @@
 #'
 #' @import mvtnorm
 #'
+#' @author Antoine Barbieri, Catherine Legrand, Dimitris Rizopoulos
+#'
+#' @seealso \code{\link{jointCureModel.JMcuR}}
+#'
 #' @examples
+#' ## estimation of the MCM for parameter initialisation
+#' aids.id <- unique(aids[,c("id","time","death","drug","gender","prevOI","AZT")])
+#' aids.id2 <- aids.id
+#' aids.id2$drug <- as.numeric(aids.id$drug)-1
+#' aids.id2$gender <- as.numeric(aids.id$gender)-1
+#' aids.id2$prevOI <- as.numeric(aids.id$prevOI)-1
+#' aids.id2$AZT <- as.numeric(aids.id$AZT)-1
+#' smcure_out <- smcure(Surv(time, death) ~ drug + gender + prevOI + AZT,
+#'                      cureform=~ drug + gender + prevOI + AZT,
+#'                      data = aids.id2,
+#'                      model="ph")
+#'
+#' ## Estimation of the joint latent class cure model (JLCCM)
+#' JLCCM <- jointCureModel(formFixed = CD4 ~ obstime + drug + gender + prevOI + AZT,
+#'                         formRandom = ~ obstime,
+#'                         timeVar= "obstime",
+#'                         formLatency = Surv(time, death) ~ drug + gender + prevOI + AZT,
+#'                         formIncidence = ~ drug + gender + prevOI + AZT,
+#'                         formID= ~ id,
+#'                         IdVar = "id",
+#'                         data = aids,
+#'                         # model specifications
+#'                         jointCureModel = c("JLCCmodel"),
+#'                         survMod = c("weibull-PH"),
+#'                         param = c("shared-RE"),
+#'                         # prior options
+#'                         Infprior_cure = TRUE,
+#'                         smcure_out = smcure_out,
+#'                         priorTau = 100,
+#'                         # classification options
+#'                         classif_trick = TRUE,
+#'                         cov_prior = c("inverse-gamma"),
+#'                         Sigma_d = TRUE)
+#'
+#' ## details of the estimated model
+#' summary(JLCCM)
+#'
+#' ## prediction step with the JLCCM
+#' # Frequentist approach
+#' pred_JLCCM <- predict.JMcuR(object = JLCCM,
+#'                             newdata = NULL,
+#'                             type = c("subject"),
+#'                             state = c("cure"),
+#'                             level.intervalle=0.95,
+#'                             Tsurv = NULL,
+#'                             Yt = NULL,
+#'                             yVar = "CD4",
+#'                             idVar = "id",
+#'                             MCMC = FALSE,
+#'                             M = NULL)
+#' # Bayesian approach
+#' pred_JLCCM_MCMC <- predict.JMcuR(object = JLCCM,
+#'                                  newdata = NULL,
+#'                                  type = c("subject"),
+#'                                  state = c("cure"),
+#'                                  level.intervalle=0.95,
+#'                                  Tsurv=NULL,
+#'                                  Yt = NULL,
+#'                                  yVar = "CD4",
+#'                                  idVar = "id",
+#'                                  MCMC = TRUE,
+#'                                  M = 500)
 #'
 predict.JMcuR <- function(object,
                           newdata = NULL,
                           type = c("subject"),
                           state = c("cure"),
-                          level.interval=0.95,
+                          level.interval = 0.95,
                           Tsurv = NULL,
                           Yt = NULL,
                           yVar = "y",
                           idVar = "subject",
-                          scale = 1.6,
-                          MCMC = TRUE,
+                          MCMC = FALSE,
                           M = NULL,
                           ...)
 {
+
+  # Extensions (see predict_class_tmp:
+  # - predictions of the longitudinal outcomes at t*
+  # - predictions of the probability to be event free at time t* given being event free at t<t*
+  #
+  # Modifications:
+  # MCMC==TRUE: JLCCM given the matrix of variance of random effect specific by group !!
+  #             FJCM too
 
   #--- initial conditions
   if (!inherits(object, "JMcuR"))
@@ -309,7 +381,7 @@ predict.JMcuR <- function(object,
                 else
                   Sigma2 <- solve(diag(codaFit[s,ind.thetas$Sigma2 ]))
                 if("longitudinal" %in% state){
-                  ## conditional espectation of random effets following draw of parameters (cf. (G)LMM) given D=0 and D=1
+                  ## conditional expectation of random effets following draw of parameters (cf. (G)LMM) given D=0 and D=1
                   mat0.RE[i,s,] <- (t(Sigma2%*%t(U.id)%*%solve(diag(tau2,ncol=length(y.id),nrow=length(y.id))
                                                                +U.id%*%Sigma2%*%t(U.id))
                                       %*%(y.id-X.id%*%codaFit[s,ind.thetas$beta.D0]))
@@ -558,30 +630,50 @@ predict.JMcuR <- function(object,
               S1_Tsurv[i] <- exp(-exp(etaBaseline + RE_D1[i,]%*%list.thetas$alphaRE)*Tsurv[i]^(list.thetas$shape))
             # given shared current value which need integral approximation
             if(param=="td-value"){
-              #---------------------------------------------------------------------------------
-              # !!!!!!!   latency : to modify if function of time change !!!!!!!
-              h1 <- function(etaBaseline,shape,alphaL,etabeta,beta_t,beta_t2,beta_t3){
-                h1_t <- function(t){
-                  exp(etaBaseline)*shape*t^(shape-1)*exp(alphaL*(etabeta + t * beta_t + t^2 * beta_t2 + t^3 * beta_t3))
-                }
-                return(h1_t)
-              }
-              int_h1 <- function (etaBaseline,shape,alphaL,etabeta,beta_t,beta_t2,beta_t3) {
-                integrate(h1(etaBaseline,shape,alphaL,etabeta,beta_t,beta_t2,beta_t3),  lower=0, upper=Tsurv[i])$value
-              }
-              #---------------------------------------------------------------------------------
-              intercept_RE <- RE_D1[i, grepl( "(Intercept)" , colnames(RE_D1 ),fixed = TRUE )]
-              etabeta <- beta.D1["(Intercept)"] + intercept_RE
-              t_RE <- if(paste("RE2.D1.",object$timeVar,sep = "") %in% colnames(RE_D1)) RE_D1[i, 2]  else 0
-              beta_t <- beta.D1[[object$timeVar]] + t_RE
-              t2_RE <- if(sum(grepl( paste(object$timeVar,"^2",sep = "") , colnames(RE_D1 ),fixed = TRUE ))==1) RE_D1[i, grepl(paste(object$timeVar,"^2",sep = ""), colnames(RE_D1 ),fixed = TRUE )]  else 0
-              beta_t2 <- if(sum(grepl( paste(object$timeVar,"^2",sep = "") , names(beta.D1 ),fixed = TRUE ))==1) beta.D1[ grepl(paste(object$timeVar,"^2",sep = "") , names(beta.D1 ), fixed = TRUE )]  else 0
-              beta_t2 <- beta_t2 + t2_RE
-              t3_RE <- if(sum(grepl( paste(object$timeVar,"^3",sep = "") , colnames(RE_D1 ),fixed = TRUE ))==1) RE_D1[i, grepl(paste(object$timeVar,"^3",sep = ""), colnames(RE_D1 ),fixed = TRUE )]  else 0
-              beta_t3 <- if(sum(grepl( paste(object$timeVar,"^3",sep = "") , names(beta.D1 ),fixed = TRUE ))==1) beta.D1[ grepl(paste(object$timeVar,"^3",sep = "") , names(beta.D1 ), fixed = TRUE )]  else 0
-              beta_t3 <- beta_t3 + t3_RE
-              # estimation of the latency function
-              S1_Tsurv[i] <- exp(-int_h1(etaBaseline,shape,alphaL,etabeta,beta_t,beta_t2,beta_t3))
+              #--- td-value case using Gauss_Kronrod quadrature
+              if (!object$timeVar %in% names(object$data))
+                stop("\n'timeVar' does not correspond to one of the columns in formulas")
+              # maybe need gaussKronrod() if not source at the beginning
+              wk <- gaussKronrod()$wk
+              sk <- gaussKronrod()$sk
+              K <- length(sk)
+              P <- Tsurv[i]/2
+              st <- outer(P, sk + 1)
+              id.GK <- rep(i, each = K)
+              data.id2 <- data.tmp[id.GK, ]
+              data.id2[[timeVar]] <- c(t(st))
+              mfX <- model.frame(object$formFixed, data = data.id2)
+              mfU <- model.frame(object$formRandom, data = data.id2)
+              Xs <- model.matrix(object$formFixed, mfX)
+              Us <- model.matrix(object$formRandom, mfU)
+              # if (one.RE)
+              #   Us <- cbind(Us, rep(0, nrow(Us)))
+              h_k <- as.vector(wk) * list.thetas$shape * as.vector(st^(shape - 1)) * exp(alphaL * as.vector(Xs%*%list.thetas$beta + Us%*%RE_D1[i,]))
+              S1_Tsurv[i] <- exp(-exp(etaBaseline) * P * sum(h_k))
+              # #---------------------------------------------------------------------------------
+              # # !!!!!!!   latency : to modify if function of time change !!!!!!!
+              # h1 <- function(etaBaseline,shape,alphaL,etabeta,beta_t,beta_t2,beta_t3){
+              #   h1_t <- function(t){
+              #     exp(etaBaseline)*shape*t^(shape-1)*exp(alphaL*(etabeta + t * beta_t + t^2 * beta_t2 + t^3 * beta_t3))
+              #   }
+              #   return(h1_t)
+              # }
+              # int_h1 <- function (etaBaseline,shape,alphaL,etabeta,beta_t,beta_t2,beta_t3) {
+              #   integrate(h1(etaBaseline,shape,alphaL,etabeta,beta_t,beta_t2,beta_t3),  lower=0, upper=Tsurv[i])$value
+              # }
+              # #---------------------------------------------------------------------------------
+              # intercept_RE <- RE_D1[i, grepl( "(Intercept)" , colnames(RE_D1 ),fixed = TRUE )]
+              # etabeta <- beta.D1["(Intercept)"] + intercept_RE
+              # t_RE <- if(paste("RE2.D1.",object$timeVar,sep = "") %in% colnames(RE_D1)) RE_D1[i, 2]  else 0
+              # beta_t <- beta.D1[[object$timeVar]] + t_RE
+              # t2_RE <- if(sum(grepl( paste(object$timeVar,"^2",sep = "") , colnames(RE_D1 ),fixed = TRUE ))==1) RE_D1[i, grepl(paste(object$timeVar,"^2",sep = ""), colnames(RE_D1 ),fixed = TRUE )]  else 0
+              # beta_t2 <- if(sum(grepl( paste(object$timeVar,"^2",sep = "") , names(beta.D1 ),fixed = TRUE ))==1) beta.D1[ grepl(paste(object$timeVar,"^2",sep = "") , names(beta.D1 ), fixed = TRUE )]  else 0
+              # beta_t2 <- beta_t2 + t2_RE
+              # t3_RE <- if(sum(grepl( paste(object$timeVar,"^3",sep = "") , colnames(RE_D1 ),fixed = TRUE ))==1) RE_D1[i, grepl(paste(object$timeVar,"^3",sep = ""), colnames(RE_D1 ),fixed = TRUE )]  else 0
+              # beta_t3 <- if(sum(grepl( paste(object$timeVar,"^3",sep = "") , names(beta.D1 ),fixed = TRUE ))==1) beta.D1[ grepl(paste(object$timeVar,"^3",sep = "") , names(beta.D1 ), fixed = TRUE )]  else 0
+              # beta_t3 <- beta_t3 + t3_RE
+              # # estimation of the latency function
+              # S1_Tsurv[i] <- exp(-int_h1(etaBaseline,shape,alphaL,etabeta,beta_t,beta_t2,beta_t3))
             }
             if("cure" %in% state){
               #--- posterior conditional probability of being cured
@@ -642,18 +734,52 @@ predict.JMcuR <- function(object,
 
             # To approximate the integrale which depends of the i-th subject
             if(param=="td-value"){
-              #---------------------------------------------------------------------------------
-              # !!!!!!!   latency : to modify if function of time change !!!!!!!
-              h1 <- function(etaBaseline,shape,alphaL,etabeta,beta_t,beta_t2,beta_t3){
-                h1_t <- function(t){
-                  exp(etaBaseline)*shape*t^(shape-1)*exp(alphaL*(etabeta + t * beta_t + t^2 * beta_t2 + t^3 * beta_t3))
-                }
-                return(h1_t)
-              }
-              int_h1 <- function (etaBaseline,shape,alphaL,etabeta,beta_t,beta_t2,beta_t3) {
-                integrate(h1(etaBaseline,shape,alphaL,etabeta,beta_t,beta_t2,beta_t3),  lower=0, upper=Tsurv[i])$value
-              }
-              #---------------------------------------------------------------------------------
+              # Initialization for the numerical intergration using Gauss-Kronrod quadrature
+              # gaussKronrod <-
+              #   function (k = 15) {
+              #     sk <- c(-0.949107912342758524526189684047851, -0.741531185599394439863864773280788, -0.405845151377397166906606412076961, 0,
+              #             0.405845151377397166906606412076961, 0.741531185599394439863864773280788, 0.949107912342758524526189684047851, -0.991455371120812639206854697526329,
+              #             -0.864864423359769072789712788640926, -0.586087235467691130294144838258730, -0.207784955007898467600689403773245, 0.207784955007898467600689403773245,
+              #             0.586087235467691130294144838258730, 0.864864423359769072789712788640926, 0.991455371120812639206854697526329)
+              #     wk15 <- c(0.063092092629978553290700663189204, 0.140653259715525918745189590510238, 0.190350578064785409913256402421014,
+              #               0.209482141084727828012999174891714, 0.190350578064785409913256402421014, 0.140653259715525918745189590510238, 0.063092092629978553290700663189204,
+              #               0.022935322010529224963732008058970, 0.104790010322250183839876322541518, 0.169004726639267902826583426598550, 0.204432940075298892414161999234649,
+              #               0.204432940075298892414161999234649, 0.169004726639267902826583426598550, 0.104790010322250183839876322541518, 0.022935322010529224963732008058970)
+              #     wk7 <- c(0.129484966168869693270611432679082, 0.279705391489276667901467771423780, 0.381830050505118944950369775488975,
+              #              0.417959183673469387755102040816327, 0.381830050505118944950369775488975, 0.279705391489276667901467771423780, 0.129484966168869693270611432679082)
+              #     if (k == 7)
+              #       list(sk = sk[1:7], wk = wk7)
+              #     else
+              #       list(sk = sk, wk = wk15)
+              #   }
+              if (!object$timeVar %in% names(object$data))
+                stop("\n'timeVar' does not correspond to one of the columns in formulas")
+              wk <- gaussKronrod()$wk
+              sk <- gaussKronrod()$sk
+              K <- length(sk)
+              P <- Tsurv[i]/2
+              st <- outer(P, sk + 1)
+              id.GK <- rep(i, each = K)
+              data.id2 <- data.tmp[id.GK, ]
+              data.id2[[timeVar]] <- c(t(st))
+              mfX <- model.frame(object$formFixed, data = data.id2)
+              mfU <- model.frame(object$formRandom, data = data.id2)
+              Xs <- model.matrix(object$formFixed, mfX)
+              # if (one.RE)
+              #   Us <- cbind(Us, rep(0, nrow(Us)))
+              Us <- model.matrix(object$formRandom, mfU)
+              # #---------------------------------------------------------------------------------
+              # # old
+              # h1 <- function(etaBaseline,shape,alphaL,etabeta,beta_t,beta_t2,beta_t3){
+              #   h1_t <- function(t){
+              #     exp(etaBaseline)*shape*t^(shape-1)*exp(alphaL*(etabeta + t * beta_t + t^2 * beta_t2 + t^3 * beta_t3))
+              #   }
+              #   return(h1_t)
+              # }
+              # int_h1 <- function (etaBaseline,shape,alphaL,etabeta,beta_t,beta_t2,beta_t3) {
+              #   integrate(h1(etaBaseline,shape,alphaL,etabeta,beta_t,beta_t2,beta_t3),  lower=0, upper=Tsurv[i])$value
+              # }
+              # #---------------------------------------------------------------------------------
             }
 
             # beginning of the M draws
@@ -714,26 +840,27 @@ predict.JMcuR <- function(object,
 
               # latency contribution given shared current value which need integral approximation
               if(param=="td-value"){
-                tmp.RE <- (mat1.RE[i, s, ])
-                names(tmp.RE) <- namesD1_uu
-                beta.D1 <- codaFit[s,ind.thetas$beta.D1]
-                names(beta.D1) <- names(object$coefficients$beta.D1)
-                intercept_RE <- tmp.RE[ grepl( "(Intercept)" , names(tmp.RE),fixed = TRUE )]
-                etabeta <- beta.D1["(Intercept)"] + intercept_RE
-                t_RE <- if(paste("RE2.D1.",object$timeVar,sep = "") %in% names(tmp.RE)) tmp.RE[2]  else 0
-                beta_t <- beta.D1[[object$timeVar]] + t_RE
-                t2_RE <- if(sum(grepl( paste(object$timeVar,"^2",sep = "") , names(tmp.RE),fixed = TRUE ))==1) tmp.RE[grepl(paste(object$timeVar,"^2",sep = ""), colnames(tmp.RE),fixed = TRUE )]  else 0
-                beta_t2 <- if(sum(grepl( paste(object$timeVar,"^2",sep = "") , names(beta.D1 ),fixed = TRUE ))==1) beta.D1[ grepl(paste(object$timeVar,"^2",sep = "") , names(beta.D1 ), fixed = TRUE )]  else 0
-                beta_t2 <- beta_t2 + t2_RE
-                t3_RE <- if(sum(grepl( paste(object$timeVar,"^3",sep = "") , names(tmp.RE),fixed = TRUE ))==1) tmp.RE[igrepl(paste(object$timeVar,"^3",sep = ""), colnames(tmp.RE),fixed = TRUE )]  else 0
-                beta_t3 <- if(sum(grepl( paste(object$timeVar,"^3",sep = "") , names(beta.D1 ),fixed = TRUE ))==1) beta.D1[ grepl(paste(object$timeVar,"^3",sep = "") , names(beta.D1 ), fixed = TRUE )]  else 0
-                beta_t3 <- beta_t3 + t3_RE
-                S1_Tsurv[s, i] <- exp(-int_h1(etaBaseline[s],codaFit[s,ind.thetas$shape],codaFit[s,ind.thetas$alphaL],etabeta,beta_t,beta_t2,beta_t3))
+                h_k <- as.vector(wk) * codaFit[s,ind.thetas$shape] * as.vector(st^(codaFit[s,ind.thetas$shape] - 1)) * exp(codaFit[s,ind.thetas$alphaL] * as.vector(Xs%*%codaFit[s,ind.thetas$beta.D1] + Us%*%mat1.RE[i, s, ]))
+                S1_Tsurv[s, i] <- exp(-exp(etaBaseline[s]) * P * sum(h_k))
+                # tmp.RE <- mat1.RE[i, s, ]
+                # names(tmp.RE) <- namesD1_uu
+                # beta.D1 <- codaFit[s,ind.thetas$beta.D1]
+                # names(beta.D1) <- names(object$coefficients$beta.D1)
+                # intercept_RE <- tmp.RE[ grepl( "(Intercept)" , names(tmp.RE),fixed = TRUE )]
+                # etabeta <- beta.D1["(Intercept)"] + intercept_RE
+                # t_RE <- if(paste("RE2.D1.",object$timeVar,sep = "") %in% names(tmp.RE)) tmp.RE[2]  else 0
+                # beta_t <- beta.D1[[object$timeVar]] + t_RE
+                # t2_RE <- if(sum(grepl( paste(object$timeVar,"^2",sep = "") , names(tmp.RE),fixed = TRUE ))==1) tmp.RE[grepl(paste(object$timeVar,"^2",sep = ""), colnames(tmp.RE),fixed = TRUE )]  else 0
+                # beta_t2 <- if(sum(grepl( paste(object$timeVar,"^2",sep = "") , names(beta.D1 ),fixed = TRUE ))==1) beta.D1[ grepl(paste(object$timeVar,"^2",sep = "") , names(beta.D1 ), fixed = TRUE )]  else 0
+                # beta_t2 <- beta_t2 + t2_RE
+                # t3_RE <- if(sum(grepl( paste(object$timeVar,"^3",sep = "") , names(tmp.RE),fixed = TRUE ))==1) tmp.RE[igrepl(paste(object$timeVar,"^3",sep = ""), colnames(tmp.RE),fixed = TRUE )]  else 0
+                # beta_t3 <- if(sum(grepl( paste(object$timeVar,"^3",sep = "") , names(beta.D1 ),fixed = TRUE ))==1) beta.D1[ grepl(paste(object$timeVar,"^3",sep = "") , names(beta.D1 ), fixed = TRUE )]  else 0
+                # beta_t3 <- beta_t3 + t3_RE
+                # S1_Tsurv[s, i] <- exp(-int_h1(etaBaseline[s],codaFit[s,ind.thetas$shape],codaFit[s,ind.thetas$alphaL],etabeta,beta_t,beta_t2,beta_t3))
               }
 
             }# end loop s
 
-            # ICI cheack if the survival is well computed
             # latency contribution given shared random effects
             if(param=="shared-RE")
               S1_Tsurv[, i] <- exp(-exp(etaBaseline + as.vector(apply(codaFit[, ind.thetas$alphaRE]*mat1.RE[i, , ],1,sum)))*Tsurv[i]^(codaFit[, ind.thetas$shape]))
