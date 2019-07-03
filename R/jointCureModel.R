@@ -1,6 +1,10 @@
 #' Estimation of the joint longitudinal time-to-event models including a cure fraction
 #'
-#' Function using JAGS to estimate the joint longitudinal survival models with cure fraction: mixutre cure model (MCmodel) [Farewell, 1982], joint latent class cure model (JLCCmodel),  full joint cure model (FJCmodel) [Law et al. 2002, YU et al. 2004,2008]
+#' Function using JAGS to estimate the joint longitudinal survival models with cure fraction:
+#' mixutre cure model (MCmodel) [Farewell, 1982], joint latent class cure model (JLCCmodel),
+#' full joint cure model (FJCmodel) [Law et al. 2002, Yu et al. 2004,2008].
+#' This function is an extansion (or modification) to the cure framework of the \code{jointModelBayes} function from the \code{JMbayes} package
+#' (version 0.4-1 implemented by Dimitris Rizopoulos).
 #'
 #' @param formFixed formula for fixed part of longitudinal submodel with response variable
 #' @param formRandom formula for random part of longitudinal submodel without response variable
@@ -13,11 +17,11 @@
 #' @param jointCureModel joint cure model to estimate including: "MCmodel","JLCCmodel","FJCmodel"
 #' @param survMod form of survival submodel (only "weibull-PH" is available until now)
 #' @param param shared association for "FJCmodel": "shared-RE" (default) or "td-value"
-#' @param Infprior_cure most of prior distributions are data-driven if 'TRUE', otherwise vague prior distribution are considered
+#' @param Infprior_cure most of prior distributions are data-driven if 'TRUE', otherwise vague priors are considered
 #' @param smcure_out estimated model from smcure package, otherwise is NULL by default
 #' @param classif_trick if TRUE, subjects are cured if t_obs>max(t_obs(delta==1), otherwise D is only know for subjects having developed the event Taylor's rule about the cure status, D==0 if T_obs>max(t_obs[which(delta==1)])
 #' @param cov_prior ="wishart" prior distribtion for random effect covariance matrix or ="inverse-gamma" for independent prior distribtions with random effect variance matrix
-#' @param Sigma_d if TRUE, the random effect matrix is class-specific, otherwise is the matrix is defined for the whole population
+#' @param Sigma_d if TRUE, the random effect matrix is class-specific, otherwise the matrix is defined for the whole population
 #' @param n.chains the number of parallel chains for the model; default is 1.
 #' @param n.iter nteger specifying the total number of iterations; default is 10000
 #' @param n.burnin integer specifying how many of n.iter to discard as burn-in ; default is 5000
@@ -27,7 +31,7 @@
 #' @param priorTau variance by default for vague prior distribution
 #' @param out_data Boolean such as TRUE if you want the data of different submodels in output or FALSE otherwise
 #'
-#' @return A 'JMcuR' object which is a list with the following elements:
+#' @return A \code{JMcuR} object which is a list with the following elements:
 #'    \describe{
 #'   \item{\code{Coefficients}}{list of posterior mean of each parameter}
 #'   \item{\code{Modes}}{ list of posterior modes compute from the posterior samples of the parameters}
@@ -37,13 +41,25 @@
 #'
 #' @export
 #'
-#' @import smcure rjags lcmm coda
+#' @import smcure rjags lcmm coda joineR
+#'
+#' @author Antoine Barbieri and Catherine Legrand
+#'
+#' @references Barbieri A and Legrand C. (2019). \emph{Joint longitudinal and time-to-event cure models for the assessment of being cured}. Statistical Methods in Medical Research. doi: 10.1177/0962280219853599.
+#' @references Proust-Lima C, Philipps V and Liquet B. (2017). \emph{Estimation of Extended Mixed Models Using Latent Classes and Latent Processes: The R Package lcmm}. Journal of Statistical Software; 78(2).
+#' @references Rizopoulos, D. (2016). \emph{The R Package JMbayes for Fitting Joint Models for Longitudinal and Time-to-Event Data Using MCMC}. Journal of Statistical Software, 72(7), 1-46.
+#' @references Yu M, Taylor JMG and Sandler HM. (2008). \emph{Individual Prediction in Prostate Cancer Studies Using a Joint Longitudinal Survival-Cure Model}. Journal of the American Statistical Association; 103(481): 178-187.
+#' @references Yu M, Law NJ, Taylor JMG et al. (2004). \emph{Joint longitudinal-survival-cure models and their application to prostate cancer}. Statistica Sinica; 14(3): 835-862.
+#' @references Law NJ, Taylor JMG and Sandler H. (2002). \emph{The joint modeling of a longitudinal disease progression marker and the failure time process in the presence of cure}. Biostatistics; 3(4): 547-563.
+#' @references Taylor JMG. (1995) \emph{Semi-Parametric Estimation in Failure Time Mixture Models}. Biometrics 1995; 51(3): 899-907.
 #'
 #' @examples
 #'
+#' ## For the exemple(s), use the data 'aids' from joineR package
+#' data("aids", package = "joineR")
+#'
 #' ## estimation of the MCM for parameter initialisation
 #' aids.id <- unique(aids[,c("id","time","death","drug","gender","prevOI","AZT")])
-#' table(aids.id$death)
 #' aids.id2 <- aids.id
 #' aids.id2$drug <- as.numeric(aids.id$drug)-1
 #' aids.id2$gender <- as.numeric(aids.id$gender)-1
@@ -64,78 +80,80 @@
 #'                         IdVar = "id",
 #'                         data = aids,
 #'                         # model specifications
-#'                         jointCureModel = c("JLCCmodel"),
-#'                         survMod = c("weibull-PH"),
-#'                         param = c("shared-RE"),
+#'                         jointCureModel = "JLCCmodel",
+#'                         survMod = "weibull-PH",
+#'                         param = "shared-RE",
 #'                         # prior options
 #'                         Infprior_cure = TRUE,
 #'                         smcure_out = smcure_out,
 #'                         priorTau = 100,
 #'                         # classification options
 #'                         classif_trick = TRUE,
-#'                         cov_prior = c("inverse-gamma"),
+#'                         cov_prior = "inverse-gamma",
 #'                         Sigma_d = TRUE)
 #'
 #' ## details of the estimated model
 #' summary(JLCCM)
 #'
+#' \dontrun{
 #' ## Estimation of the full joint cure model given shared curent value (FJCM_A1)
-#' FJCM_A1 <- cureJMbayes(formFixed = CD4 ~ obstime,
-#'                        formRandom = ~ obstime,
-#'                        timeVar= "obstime",
-#'                        formLatency = Surv(time, death) ~ drug + gender + prevOI + AZT,
-#'                        formIncidence = ~ drug + gender + prevOI + AZT,
-#'                        formID= ~ id,
-#'                        IdVar = "id",
-#'                        data = aids,
-#'                        # model specifications
-#'                        jointCureModel = c("FJCmodel"),
-#'                        survMod = c("weibull-PH"),
-#'                        param = c("td-value"),
-#'                        # prior options
-#'                        Infprior_cure = TRUE,
-#'                        smcure_out = smcure_out,
-#'                        priorTau = 100,
-#'                        # classification options
-#'                        classif_trick = TRUE,
-#'                        cov_prior = c("inverse-gamma"),
-#'                        Sigma_d = TRUE,
-#'                        # MCMC options
-#'                        n.chains = 1, n.iter = 10000, n.burnin = 5000, n.thin = 1, n.adapt = 5000, quiet = FALSE, C = 1,
-#'                        # out option
-#'                        out_data=T)
+#' FJCM_A1 <- jointCureModel(formFixed = CD4 ~ obstime,
+#'                          formRandom = ~ obstime,
+#'                          timeVar= "obstime",
+#'                          formLatency = Surv(time, death) ~ drug + gender + prevOI + AZT,
+#'                          formIncidence = ~ drug + gender + prevOI + AZT,
+#'                          formID= ~ id,
+#'                          IdVar = "id",
+#'                          data = aids,
+#'                          # model specifications
+#'                          jointCureModel = "FJCmodel",
+#'                          survMod = "weibull-PH",
+#'                          param = "td-value",
+#'                          # prior options
+#'                          Infprior_cure = TRUE,
+#'                          smcure_out = smcure_out,
+#'                          priorTau = 100,
+#'                          # classification options
+#'                          classif_trick = TRUE,
+#'                          cov_prior = "inverse-gamma",
+#'                          Sigma_d = TRUE,
+#'                          # MCMC options
+#'                          n.chains = 1, n.iter = 10000, n.burnin = 5000, n.thin = 1, n.adapt = 5000, C = 1,
+#'                          # out option
+#'                          out_data=T)
 #'
 #' ## details of the estimated model
 #' summary(FJCM_A1)
 #'
 #' ## Estimation of the full joint cure model given shared curent value (FJCM_A1)
-#' FJCM_A2 <- cureJMbayes(formFixed = CD4 ~ obstime,
-#'                        formRandom = ~ obstime,
-#'                        timeVar= "obstime",
-#'                        formLatency = Surv(time, death) ~ drug + gender + prevOI + AZT,
-#'                        formIncidence = ~ drug + gender + prevOI + AZT,
-#'                        formID= ~ id,
-#'                        IdVar = "id",
-#'                        data = aids,
-#'                        # model specifications
-#'                        jointCureModel = c("FJCmodel"),
-#'                        survMod = c("weibull-PH"),
-#'                        param = c("shared-RE"),
-#'                        # prior options
-#'                        Infprior_cure = TRUE,
-#'                        smcure_out = smcure_out,
-#'                        priorTau = 100,
-#'                        # classification options
-#'                        classif_trick = TRUE,
-#'                        cov_prior = c("inverse-gamma"),
-#'                        Sigma_d = TRUE,
-#'                        # MCMC options
-#'                        n.chains = 1, n.iter = 10000, n.burnin = 5000, n.thin = 1, n.adapt = 5000, quiet = FALSE, C = 1,
-#'                        # out option
-#'                        out_data=T)
+#' FJCM_A2 <- jointCureModel(formFixed = CD4 ~ obstime,
+#'                          formRandom = ~ obstime,
+#'                          timeVar= "obstime",
+#'                          formLatency = Surv(time, death) ~ drug + gender + prevOI + AZT,
+#'                          formIncidence = ~ drug + gender + prevOI + AZT,
+#'                          formID= ~ id,
+#'                          IdVar = "id",
+#'                          data = aids,
+#'                          # model specifications
+#'                          jointCureModel = "FJCmodel",
+#'                          survMod = "weibull-PH",
+#'                          param = "shared-RE",
+#'                          # prior options
+#'                          Infprior_cure = TRUE,
+#'                          smcure_out = smcure_out,
+#'                          priorTau = 100,
+#'                          # classification options
+#'                          classif_trick = TRUE,
+#'                          cov_prior = "inverse-gamma",
+#'                          Sigma_d = TRUE,
+#'                          # MCMC options
+#'                          n.chains = 1, n.iter = 10000, n.burnin = 5000, n.thin = 1, n.adapt = 5000, C = 1,
+#'                          # out option
+#'                          out_data=T)
 #'
 #' ## details of the estimated model
 #' summary(FJCM_A2)
+#' }
 jointCureModel <- function(formFixed,
                            formRandom,
                            formLatency,
@@ -144,13 +162,13 @@ jointCureModel <- function(formFixed,
                            IdVar,
                            data,
                            timeVar,
-                           jointCureModel = c("FJCmodel"),
-                           survMod = c("weibull-PH"),
-                           param = c("shared-RE"),
+                           jointCureModel = "FJCmodel",
+                           survMod = "weibull-PH",
+                           param = "shared-RE",
                            Infprior_cure=F,
                            smcure_out=NULL,
                            classif_trick=TRUE,
-                           cov_prior=c("inverse-gamma"),
+                           cov_prior="inverse-gamma",
                            Sigma_d=FALSE,
                            n.chains = 1,
                            n.iter = 10000,
@@ -162,7 +180,8 @@ jointCureModel <- function(formFixed,
                            out_data=T)
   {
 
-
+  #--------------------------------------------------------------------------------------------------------------------------------
+  #--------------------------------------------------------------------------------------------------------------------------------
   #----- versions
   # May-2017    : first stable version;
   # Aug-2017    : addition of smcure object in arguments used in simulation programs;
@@ -175,19 +194,15 @@ jointCureModel <- function(formFixed,
   # May-2018    : Add dynamic prediction of the class membership using the draw of variable Ds
   #               + extension to ordinal longitudinal responses
   #               + add the specific-class variance of the error measurements
-
-
-  #--------------------------------------------------------------------------------------------------------------------------------
-  #--------------------------------------------------------------------------------------------------------------------------------
-  # -------- WARNINGs !!!
-  # computed and put a dic in output (must be studied)
+  #
+  # -------- Improvements ---------
+  # computed and put a dic in output
   # Add the specific-class variance of the error measurements
   # Add class membership prediction
-  # -------- Improvements !!!
+  # Add other GLMM: ordinal longitudinal response
   # Add other latent strutures (Slope, AUC)
-  # Add other survival models (B-spline)
+  # Add other survival models (B-spline, piecewise)
   # Initial values: put random effect predictions
-  # Add other GLMM: probability distribution function for longitudinal response variable and for random effets ? cumulative model or student
   #---------------------------------------------------------------------------------------------------------------------------------
   #--------------------------------------------------------------------------------------------------------------------------------
 
@@ -620,12 +635,12 @@ jointCureModel <- function(formFixed,
                                     n.chains = n.chains,
                                     n.adapt = n.adapt,
                                     quiet = quiet)
-  rjags::update(JMjags.model, n.burnin)
+  update(JMjags.model, n.burnin)
   fit <- rjags::coda.samples(JMjags.model,
                              variable.names=parms_to_save,
                              n.iter = n.iter - n.burnin,
                              thin = n.thin)
-
+  file.remove("JagsModel.txt")
   #--- Management of the outputs
 
   # file.remove(file.path(con$working.directory, "JagsModel.txt"))

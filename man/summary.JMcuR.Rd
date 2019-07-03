@@ -15,5 +15,14 @@
 Returns NULL.
 }
 \description{
-The function provides a summary of jointCureModel estimations.
+The function provides a summary of jointCureModel estimations. First, joint cure model's details are given.
+Next, the estimation parameters including the standard erreur, standard deviation, and bound of the
+credible interval at 95% are given for incidence submodel, latency submodel and conditionnal longitudinal submodels,
+respectively.
+}
+\seealso{
+\code{\link{jointCureModel}}
+}
+\author{
+Antoine Barbieri, Catherine Legrand
 }

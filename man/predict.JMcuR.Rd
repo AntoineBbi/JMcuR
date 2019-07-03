@@ -4,13 +4,12 @@
 \alias{predict.JMcuR}
 \title{Predictions of the cure membership, the longitudinal or survival responses}
 \usage{
-\method{predict}{JMcuR}(object, newdata = NULL, type = c("subject"),
-  state = c("cure"), level.interval = 0.95, Tsurv = NULL,
-  Yt = NULL, yVar = "y", idVar = "subject", scale = 1.6,
-  MCMC = TRUE, M = NULL, ...)
+\method{predict}{JMcuR}(object, newdata = NULL, type = "subject",
+  state = "cure", level.interval = 0.95, Tsurv = NULL, Yt = NULL,
+  yVar = "y", idVar = "subject", MCMC = FALSE, M = NULL, ...)
 }
 \arguments{
-\item{object}{an object inheriting from class 'JMcuR'}
+\item{object}{an object inheriting from class \code{JMcuR}}
 
 \item{newdata}{a data frame in which to look for variables with which to predict (default is NULL, and the prediction is done on the data used to estimate the cure model)}
 
@@ -18,7 +17,7 @@
 
 \item{state}{a (vector of) character string indicating the response ("cure","survival","longitudinal") to predict}
 
-\item{level.interval}{a numeric scalar denoting the tolerance/confidence level for the credibility interval}
+\item{level.interval}{a numeric scalar denoting the tolerance/confidence level for the credibility interval; the credible interval is return only for \cite{MCMC=TRUE}}
 
 \item{Tsurv}{A numeric scalar denoting the time of interest associated with the prediction; 'Tsur' is NULL by default and then the censoring time is considered to predict the cure status.}
 
@@ -28,16 +27,14 @@
 
 \item{idVar}{a character string indicating the name of the variable in newdata that corresponds to the subject identifier; required when type = "Subject"}
 
-\item{scale}{a numeric value setting the scaling of the covariance matrix of the empirical Bayes estimates in the Metropolis step during the Monte Carlo sampling.}
-
-\item{MCMC}{logical; if TRUE prediction procedure is done using Bayesian approach, and if FALSE the Frequentist approach is then considered for the prediction procedure}
+\item{MCMC}{logical; if TRUE prediction procedure is done using Bayesian approach, and if FALSE (by default) the Frequentist approach is then considered for the prediction procedure}
 
 \item{M}{a numerical scalar denoting the sampling size using Bayesian approach; is NULL by default and the lengh of MC chains in estimation step is then considered.}
 
 \item{...}{further arguments to be passed to or from other methods. They are ignored in this function.}
 }
 \value{
-An object 'curePredict' being a list with the following elements:
+An object \code{curePredict} being a list with the following elements:
    \describe{
   \item{\code{out_pred}}{Dataframe with the (subject-specific) prediction results.}
   \item{\code{sims.list}}{list of the MCMC chains of the parameters}
@@ -51,4 +48,76 @@ Predictions of the cure membership, the longitudinal or survival responses from 
 }
 \examples{
 
+## For the exemple(s), use the data 'aids' from joineR package
+data("aids", package = "joineR")
+
+## estimation of the MCM for parameter initialisation
+aids.id <- unique(aids[,c("id","time","death","drug","gender","prevOI","AZT")])
+aids.id2 <- aids.id
+aids.id2$drug <- as.numeric(aids.id$drug)-1
+aids.id2$gender <- as.numeric(aids.id$gender)-1
+aids.id2$prevOI <- as.numeric(aids.id$prevOI)-1
+aids.id2$AZT <- as.numeric(aids.id$AZT)-1
+smcure_out <- smcure(Surv(time, death) ~ drug + gender + prevOI + AZT,
+                     cureform=~ drug + gender + prevOI + AZT,
+                     data = aids.id2,
+                     model="ph")
+
+## Estimation of the joint latent class cure model (JLCCM)
+JLCCM <- jointCureModel(formFixed = CD4 ~ obstime + drug + gender + prevOI + AZT,
+                        formRandom = ~ obstime,
+                        timeVar= "obstime",
+                        formLatency = Surv(time, death) ~ drug + gender + prevOI + AZT,
+                        formIncidence = ~ drug + gender + prevOI + AZT,
+                        formID= ~ id,
+                        IdVar = "id",
+                        data = aids,
+                        # model specifications
+                        jointCureModel = "JLCCmodel",
+                        survMod = "weibull-PH",
+                        param = "shared-RE",
+                        # prior options
+                        Infprior_cure = TRUE,
+                        smcure_out = smcure_out,
+                        priorTau = 100,
+                        # classification options
+                        classif_trick = TRUE,
+                        cov_prior = "inverse-gamma",
+                        Sigma_d = TRUE)
+
+## details of the estimated model
+summary(JLCCM)
+
+## prediction step with the JLCCM
+# Frequentist approach
+pred_JLCCM <- predict(object = JLCCM,
+                      newdata = NULL,
+                      type = "subject",
+                      state = c("cure"),
+                      level.intervalle=0.95,
+                      Tsurv = NULL,
+                      Yt = NULL,
+                      yVar = "CD4",
+                      idVar = "id",
+                      MCMC = FALSE,
+                      M = NULL)
+# Bayesian approach
+pred_JLCCM_MCMC <- predict(object = JLCCM,
+                           newdata = NULL,
+                           type = "subject",
+                           state = c("cure"),
+                           level.intervalle=0.95,
+                           Tsurv=NULL,
+                           Yt = NULL,
+                           yVar = "CD4",
+                           idVar = "id",
+                           MCMC = TRUE,
+                           M = 500)
+
+}
+\seealso{
+\code{\link{jointCureModel}}
+}
+\author{
+Antoine Barbieri and Catherine Legrand
 }

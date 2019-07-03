@@ -1,15 +1,19 @@
 #' Summary of a 'JMcuR' objects
 #'
-#' The function provides a summary of jointCureModel estimations.
+#' The function provides a summary of jointCureModel estimations. First, joint cure model's details are given.
+#' Next, the estimation parameters including the standard erreur, standard deviation, and bound of the
+#' credible interval at 95% are given for incidence submodel, latency submodel and conditionnal longitudinal submodels,
+#' respectively.
 #'
 #' @param object an object inheriting from class 'JMcuR'
 #' @param ... further arguments to be passed to or from other methods. They are ignored in this function.
 #'
 #' @return Returns NULL.
 #'
-#' @export
+#' @author Antoine Barbieri, Catherine Legrand
 #'
-#' @examples
+#' @seealso \code{\link{jointCureModel}}
+#'
 summary.JMcuR <- function (object, ...)
   {
     if (!inherits(object, "JMcuR"))

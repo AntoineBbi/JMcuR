@@ -2,14 +2,14 @@ Package: JMcuR
 Title: Joint Modeling for longitudinal and time-to-event data with cuRe fraction (JMcuR)
 Version: 0.0.0.9000
 Date: 2018-07-27
-Authors@R: person("Antoine", "Barbieri", email = "antoine.barbieri@gmail.com", role = c("aut", "cre"))
-Description: Joint models for longitudinal and time-to-event data when the population of interest includes a cure fraction. Estimation step uses JAGS and predictions using Bayesian or Frequentist approach. Codes are based on the raw JMbayes codes (version 0.4-1).
-Depends: R (>= 3.4.1), MASS, smcure, lcmm, rjags, coda, mvtnorm
+Authors@R: c(person("Antoine", "Barbieri", role = c("aut", "cre"), email = "antoine.barbieri@u-bordeaux.fr") , person("Catherine", "Legrand", role = "aut"))
+Description: Joint models for longitudinal and time-to-event data when the population of interest includes a cure fraction. Estimation step uses JAGS and predictions using Bayesian or Frequentist approach. This package is an extension to the cure framework of the JMbayes package version 0.4-1 implemented by Dimitris Rizopoulos.
+Depends: R (>= 3.4.0), MASS, smcure, lcmm, rjags, coda, mvtnorm, joineR
 SystemRequirements: JAGS (>= 3.2.0)
 License: GPL (>= 2)
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 6.1.0
+RoxygenNote: 6.1.1
 Suggests: 
     knitr,
     rmarkdown

@@ -26,13 +26,17 @@
 #'
 #' @export
 #'
-#' @import mvtnorm
+#' @import mvtnorm joineR
 #'
-#' @author Antoine Barbieri, Catherine Legrand, Dimitris Rizopoulos
+#' @author Antoine Barbieri and Catherine Legrand
 #'
-#' @seealso \code{\link{jointCureModel.JMcuR}}
+#' @seealso \code{\link{jointCureModel}}
 #'
 #' @examples
+#'
+#' ## For the exemple(s), use the data 'aids' from joineR package
+#' data("aids", package = "joineR")
+#'
 #' ## estimation of the MCM for parameter initialisation
 #' aids.id <- unique(aids[,c("id","time","death","drug","gender","prevOI","AZT")])
 #' aids.id2 <- aids.id
@@ -55,16 +59,16 @@
 #'                         IdVar = "id",
 #'                         data = aids,
 #'                         # model specifications
-#'                         jointCureModel = c("JLCCmodel"),
-#'                         survMod = c("weibull-PH"),
-#'                         param = c("shared-RE"),
+#'                         jointCureModel = "JLCCmodel",
+#'                         survMod = "weibull-PH",
+#'                         param = "shared-RE",
 #'                         # prior options
 #'                         Infprior_cure = TRUE,
 #'                         smcure_out = smcure_out,
 #'                         priorTau = 100,
 #'                         # classification options
 #'                         classif_trick = TRUE,
-#'                         cov_prior = c("inverse-gamma"),
+#'                         cov_prior = "inverse-gamma",
 #'                         Sigma_d = TRUE)
 #'
 #' ## details of the estimated model
@@ -72,34 +76,34 @@
 #'
 #' ## prediction step with the JLCCM
 #' # Frequentist approach
-#' pred_JLCCM <- predict.JMcuR(object = JLCCM,
-#'                             newdata = NULL,
-#'                             type = c("subject"),
-#'                             state = c("cure"),
-#'                             level.intervalle=0.95,
-#'                             Tsurv = NULL,
-#'                             Yt = NULL,
-#'                             yVar = "CD4",
-#'                             idVar = "id",
-#'                             MCMC = FALSE,
-#'                             M = NULL)
+#' pred_JLCCM <- predict(object = JLCCM,
+#'                       newdata = NULL,
+#'                       type = "subject",
+#'                       state = c("cure"),
+#'                       level.intervalle=0.95,
+#'                       Tsurv = NULL,
+#'                       Yt = NULL,
+#'                       yVar = "CD4",
+#'                       idVar = "id",
+#'                       MCMC = FALSE,
+#'                       M = NULL)
 #' # Bayesian approach
-#' pred_JLCCM_MCMC <- predict.JMcuR(object = JLCCM,
-#'                                  newdata = NULL,
-#'                                  type = c("subject"),
-#'                                  state = c("cure"),
-#'                                  level.intervalle=0.95,
-#'                                  Tsurv=NULL,
-#'                                  Yt = NULL,
-#'                                  yVar = "CD4",
-#'                                  idVar = "id",
-#'                                  MCMC = TRUE,
-#'                                  M = 500)
+#' pred_JLCCM_MCMC <- predict(object = JLCCM,
+#'                            newdata = NULL,
+#'                            type = "subject",
+#'                            state = c("cure"),
+#'                            level.intervalle=0.95,
+#'                            Tsurv=NULL,
+#'                            Yt = NULL,
+#'                            yVar = "CD4",
+#'                            idVar = "id",
+#'                            MCMC = TRUE,
+#'                            M = 500)
 #'
 predict.JMcuR <- function(object,
                           newdata = NULL,
-                          type = c("subject"),
-                          state = c("cure"),
+                          type = "subject",
+                          state = "cure",
                           level.interval = 0.95,
                           Tsurv = NULL,
                           Yt = NULL,
