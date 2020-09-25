@@ -63,6 +63,8 @@
 #'                         survMod = "weibull-PH",
 #'                         param = "shared-RE",
 #'                         # prior options
+#'                         n.iter = 1000,
+#'                         n.burnin = 500,
 #'                         Infprior_cure = TRUE,
 #'                         smcure_out = smcure_out,
 #'                         priorTau = 100,
@@ -87,6 +89,8 @@
 #'                       idVar = "id",
 #'                       MCMC = FALSE,
 #'                       M = NULL)
+#'
+#' \dontrun{
 #' # Bayesian approach
 #' pred_JLCCM_MCMC <- predict(object = JLCCM,
 #'                            newdata = NULL,
@@ -99,6 +103,7 @@
 #'                            idVar = "id",
 #'                            MCMC = TRUE,
 #'                            M = 500)
+#'}
 #'
 predict.JMcuR <- function(object,
                           newdata = NULL,

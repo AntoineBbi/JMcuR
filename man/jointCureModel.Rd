@@ -4,13 +4,32 @@
 \alias{jointCureModel}
 \title{Estimation of the joint longitudinal time-to-event models including a cure fraction}
 \usage{
-jointCureModel(formFixed, formRandom, formLatency, formIncidence, formID,
-  IdVar, data, timeVar, jointCureModel = "FJCmodel",
-  survMod = "weibull-PH", param = "shared-RE", Infprior_cure = F,
-  smcure_out = NULL, classif_trick = TRUE,
-  cov_prior = "inverse-gamma", Sigma_d = FALSE, n.chains = 1,
-  n.iter = 10000, n.burnin = 5000, n.thin = 1, n.adapt = 5000,
-  C = 1, priorTau = 100, out_data = T)
+jointCureModel(
+  formFixed,
+  formRandom,
+  formLatency,
+  formIncidence,
+  formID,
+  IdVar,
+  data,
+  timeVar,
+  jointCureModel = "FJCmodel",
+  survMod = "weibull-PH",
+  param = "shared-RE",
+  Infprior_cure = F,
+  smcure_out = NULL,
+  classif_trick = TRUE,
+  cov_prior = "inverse-gamma",
+  Sigma_d = FALSE,
+  n.chains = 1,
+  n.iter = 10000,
+  n.burnin = 5000,
+  n.thin = 1,
+  n.adapt = 5000,
+  C = 1,
+  priorTau = 100,
+  out_data = T
+)
 }
 \arguments{
 \item{formFixed}{formula for fixed part of longitudinal submodel with response variable}
@@ -108,6 +127,8 @@ JLCCM <- jointCureModel(formFixed = CD4 ~ obstime + drug + gender + prevOI + AZT
                         survMod = "weibull-PH",
                         param = "shared-RE",
                         # prior options
+                        n.iter = 1000,
+                        n.burnin = 500,
                         Infprior_cure = TRUE,
                         smcure_out = smcure_out,
                         priorTau = 100,

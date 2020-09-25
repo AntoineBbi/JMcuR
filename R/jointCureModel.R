@@ -84,6 +84,8 @@
 #'                         survMod = "weibull-PH",
 #'                         param = "shared-RE",
 #'                         # prior options
+#'                         n.iter = 1000,
+#'                         n.burnin = 500,
 #'                         Infprior_cure = TRUE,
 #'                         smcure_out = smcure_out,
 #'                         priorTau = 100,
@@ -179,32 +181,6 @@ jointCureModel <- function(formFixed,
                            priorTau = 100,
                            out_data=T)
   {
-
-  #--------------------------------------------------------------------------------------------------------------------------------
-  #--------------------------------------------------------------------------------------------------------------------------------
-  #----- versions
-  # May-2017    : first stable version;
-  # Aug-2017    : addition of smcure object in arguments used in simulation programs;
-  # 7-sept-2017 : addition of "shared-RE" as association structure;
-  # 14-sept-2017: solving one random effect issue and last stable version (current version);
-  # _-Novem-2017: vague priors without data-driven parameter priors
-  #               + independence between random effects (inverse-gamma prior distributions while inverse-wishart)
-  #               + option about D==0 if T_obs>max(t_obs[which(delta==1)])
-  #               + calibration of markov chain initial values
-  # May-2018    : Add dynamic prediction of the class membership using the draw of variable Ds
-  #               + extension to ordinal longitudinal responses
-  #               + add the specific-class variance of the error measurements
-  #
-  # -------- Improvements ---------
-  # computed and put a dic in output
-  # Add the specific-class variance of the error measurements
-  # Add class membership prediction
-  # Add other GLMM: ordinal longitudinal response
-  # Add other latent strutures (Slope, AUC)
-  # Add other survival models (B-spline, piecewise)
-  # Initial values: put random effect predictions
-  #---------------------------------------------------------------------------------------------------------------------------------
-  #--------------------------------------------------------------------------------------------------------------------------------
 
   lag = 0
   quiet = FALSE
@@ -627,8 +603,8 @@ jointCureModel <- function(formFixed,
 
   #---- Call to JAGS to estimate the model
 
-  if (!require("rjags"))
-    stop("'rjags' is required.\n")
+  # if (!require("rjags"))
+  #   stop("'rjags' is required.\n")
   JMjags.model <- rjags::jags.model(file = "JagsModel.txt",
                                     data = jags.data,
                                     inits = list(initial.values),
@@ -1064,7 +1040,6 @@ jointCureModel <- function(formFixed,
     out$smcure <- c(smcure_out$b,smcure_out$beta)
   }
 
-  out$survMod <- survMod
   out$formID <- formID
   out$formRandom <- formRandom
   out$formFixed <- formFixed

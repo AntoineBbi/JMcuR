@@ -2,9 +2,12 @@
 
 S3method(predict,JMcuR)
 export(jointCureModel)
+export(mCureModel)
 import(coda)
+import(jagsUI)
 import(joineR)
 import(lcmm)
 import(mvtnorm)
 import(rjags)
 import(smcure)
+import(survival)

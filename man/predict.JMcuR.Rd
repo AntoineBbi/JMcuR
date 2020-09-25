@@ -4,9 +4,20 @@
 \alias{predict.JMcuR}
 \title{Predictions of the cure membership, the longitudinal or survival responses}
 \usage{
-\method{predict}{JMcuR}(object, newdata = NULL, type = "subject",
-  state = "cure", level.interval = 0.95, Tsurv = NULL, Yt = NULL,
-  yVar = "y", idVar = "subject", MCMC = FALSE, M = NULL, ...)
+\method{predict}{JMcuR}(
+  object,
+  newdata = NULL,
+  type = "subject",
+  state = "cure",
+  level.interval = 0.95,
+  Tsurv = NULL,
+  Yt = NULL,
+  yVar = "y",
+  idVar = "subject",
+  MCMC = FALSE,
+  M = NULL,
+  ...
+)
 }
 \arguments{
 \item{object}{an object inheriting from class \code{JMcuR}}
@@ -77,6 +88,8 @@ JLCCM <- jointCureModel(formFixed = CD4 ~ obstime + drug + gender + prevOI + AZT
                         survMod = "weibull-PH",
                         param = "shared-RE",
                         # prior options
+                        n.iter = 1000,
+                        n.burnin = 500,
                         Infprior_cure = TRUE,
                         smcure_out = smcure_out,
                         priorTau = 100,
@@ -101,6 +114,8 @@ pred_JLCCM <- predict(object = JLCCM,
                       idVar = "id",
                       MCMC = FALSE,
                       M = NULL)
+
+\dontrun{
 # Bayesian approach
 pred_JLCCM_MCMC <- predict(object = JLCCM,
                            newdata = NULL,
@@ -113,6 +128,7 @@ pred_JLCCM_MCMC <- predict(object = JLCCM,
                            idVar = "id",
                            MCMC = TRUE,
                            M = 500)
+}
 
 }
 \seealso{
