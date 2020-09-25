@@ -234,7 +234,7 @@ mCureModel <- function(formLatency,
   initial.values <- initial.values[names(initial.values) %in% parms_to_save]
 
   #---- Call to JAGS to estimate the model
-  if(verbose)
+  if(!verbose)
     cat("> JAGS is running, it can take time. Keep calm, have a cafee ;) \n")
   out_jags = jagsUI::jags(data = jags.data,
                           parameters.to.save = parms_to_save,
@@ -252,8 +252,7 @@ mCureModel <- function(formLatency,
 
   #--- Management of the outputs
   out <- list(data = data)
-  out$control <- list(model = "MCmodel",
-                      n.chains = n.chains,
+  out$control <- list(n.chains = n.chains,
                       parallel = parallel,
                       n.adapt = n.adapt,
                       n.iter = n.iter,
@@ -263,7 +262,8 @@ mCureModel <- function(formLatency,
                       formIncidence = formIncidence,
                       formLatency = formLatency,
                       formID = formID,
-                      survMod = survMod)
+                      survMod = survMod,
+                      n=nTime)
 
   # sims.list output
   out$sims.list <- out_jags$sims.list
@@ -277,8 +277,8 @@ mCureModel <- function(formLatency,
   out$median$class <- NULL
 
   # mean : Posterior mean of parameters (if mean, you can use mean instead of q50)
-  out$mean <- out_jags$mean
-  out$mean$class <- NULL
+  out$coefficients <- out_jags$mean
+  out$coefficients$class <- NULL
 
   # modes of parameters
   out$modes <- lapply(out$sims.list, function(x) {
@@ -321,14 +321,14 @@ mCureModel <- function(formLatency,
   out$Rhat$class <- NULL
 
   # names
-  names(out$mean$alpha) <-
+  names(out$coefficients$alpha) <-
     names(out$median$alpha) <-
     names(out$Rhat$alpha) <-
     names(out$modes$alpha) <-
     names(out$StErr$alpha) <-
     names(out$StDev$alpha) <- colnames(Z)
 
-  names(out$mean$gamma) <-
+  names(out$coefficients$gamma) <-
     names(out$median$gamma) <-
     names(out$Rhat$gamma) <-
     names(out$modes$gamma) <-
@@ -350,6 +350,7 @@ mCureModel <- function(formLatency,
   names(out$CIs$shape) <- c("2.5%", "97.5%")
 
   # save jags output if requires
+  out$jointCureModel <- "MCmodel"
   if(save_jagsUI)
     out$out_jagsUI <- out_jags
 

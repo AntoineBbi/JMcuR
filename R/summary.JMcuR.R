@@ -26,20 +26,24 @@ summary.JMcuR <- function (object, ...)
       cureModel <- "Joint latent class cure model (JLCCM)"
     if(object$jointCureModel=="FJCmodel")
       cureModel <- "Full joint cure model"
-    if(object$param=="shared-RE")
-      AssocStruc <- "Shared random effect(s)"
-    if(object$param=="td-value")
-      AssocStruc <- "Current value of longitudinal process"
+
     cat("#-- Statistical Model:", "\n")
         cat(paste("     -(Joint) cure model:", cureModel), "\n")
-        if(object$jointCureModel=="FJCmodel")
-          cat(paste("     -Association structure:", AssocStruc), "\n")
-        if(object$jointCureModel %in%  c("FJCmodel","JLCCmodel")){
-          cat(paste("     -Random effects assumed class-specific:", object$Sigma_d), "\n")
-          cat(paste("     -Random effects assumed independent:", object$cov_prior=="inverse-gamma"), "\n")
+        if(object$jointCureModel!="MCmodel"){
+          if(object$param=="shared-RE")
+            AssocStruc <- "Shared random effect(s)"
+          if(object$param=="td-value")
+            AssocStruc <- "Current value of longitudinal process"
+          if(object$jointCureModel=="FJCmodel")
+            cat(paste("     -Association structure:", AssocStruc), "\n")
+          if(object$jointCureModel %in%  c("FJCmodel","JLCCmodel")){
+            cat(paste("     -Random effects assumed class-specific:", object$Sigma_d), "\n")
+            cat(paste("     -Random effects assumed independent:", object$cov_prior=="inverse-gamma"), "\n")
+          }
         }
         cat(paste("     -Number of subjects:", object$control$n), "\n")
-        cat(paste("     -Number of observations:", nrow(object$data)), "\n")
+        if(object$jointCureModel!="MCmodel")
+          cat(paste("     -Number of observations:", nrow(object$data)), "\n")
         cat("\n")
 
     #---- Parameter Estimations
@@ -48,16 +52,29 @@ summary.JMcuR <- function (object, ...)
     sds <- object$StDev
     CIs <- object$CIs
     # Incidence model
-    incidence <- cbind("Value" = coefs$gamma,
-                       "Std.Err" = strs$gamma, "Std.Dev" = sds$gamma,
-                       "2.5%" = CIs$gamma[1, ], "97.5%" = CIs$gamma[2, ])
+    if(object$jointCureModel!="MCmodel"){
+      incidence <- cbind("Value" = coefs$gamma,
+                         "Std.Err" = strs$gamma, "Std.Dev" = sds$gamma,
+                         "2.5%" = CIs$gamma[1, ], "97.5%" = CIs$gamma[2, ])
+    }else{
+      incidence <- cbind("Value" = coefs$gamma,
+                         "Std.Err" = strs$gamma, "Std.Dev" = sds$gamma,
+                         "2.5%" = CIs$gamma[, 1], "97.5%" = CIs$gamma[, 2])
+
+    }
     cat("#-- Estimation of the incidence model:\n")
     prmatrix(incidence, na.print = "")
     cat("\n")
     # Latency model
-    latency <- cbind("Value" = coefs$alpha,
-                     "Std.Err" = strs$alpha, "Std.Dev" = sds$alpha,
-                     "2.5%" = CIs$alpha[1, ], "97.5%" = CIs$alpha[2, ])
+    if(object$jointCureModel!="MCmodel"){
+      latency <- cbind("Value" = coefs$alpha,
+                       "Std.Err" = strs$alpha, "Std.Dev" = sds$alpha,
+                       "2.5%" = CIs$alpha[1, ], "97.5%" = CIs$alpha[2, ])
+    }else{
+      latency <- cbind("Value" = coefs$alpha,
+                       "Std.Err" = strs$alpha, "Std.Dev" = sds$alpha,
+                       "2.5%" = CIs$alpha[, 1], "97.5%" = CIs$alpha[, 2])
+    }
     latency <- rbind(latency,
                      shape = c(coefs$shape, strs$shape, sds$shape, CIs$shape[1 ], CIs$shape[2 ]))
     latency <- rbind(shape = latency["shape", ], latency[-nrow(latency), ])
