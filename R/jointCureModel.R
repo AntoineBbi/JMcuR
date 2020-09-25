@@ -620,7 +620,7 @@ jointCureModel <- function(formFixed,
   #--- Management of the outputs
 
   # file.remove(file.path(con$working.directory, "JagsModel.txt"))
-  codaFit <- as.mcmc.list(fit)
+  codaFit <- coda::as.mcmc.list(fit)
 
   # draws of variables
   if(jointCureModel %in% c("FJCmodel","JLCCmodel","JSECmodel","FJSECmodel")){
