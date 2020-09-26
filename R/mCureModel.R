@@ -235,7 +235,7 @@ mCureModel <- function(formLatency,
 
   #---- Call to JAGS to estimate the model
   if(!verbose)
-    cat("> JAGS is running, it can take time. Keep calm, have a cafee ;) \n")
+    cat("> JAGS is running, it can take time. Keep calm, have a coffee ;) \n")
   out_jags = jagsUI::jags(data = jags.data,
                           parameters.to.save = parms_to_save,
                           model.file = "JagsModel.txt",
